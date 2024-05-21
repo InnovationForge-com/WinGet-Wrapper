@@ -47,6 +47,10 @@ Param (
     #TenantID to connect to MSGraph/InTune
     [Parameter(Mandatory=$True)]
     [string]$TenantID,
+    	
+	#ClientID to connect to MSGraph/InTune with Connect-MSIntuneGraph
+    [Parameter(Mandatory = $False)]
+    [string]$ClientID = "14d82eec-204b-4c2f-b7e8-296a70dab67e",
 
     #LogFile (Manually define logfile path. If not defined, default will be used)
     [string]$LogFile,
@@ -178,7 +182,7 @@ foreach ($row in $data){
 #Connect to Intune
 #if (-not $SkipInTuneConnection){
 try{  
-Connect-MSIntuneGraph -TenantID "$TenantID" -Interactive
+Connect-MSIntuneGraph -TenantID "$TenantID" -ClientID $ClientID -Interactive
 }
 catch {
     Write-Log "ERROR: Connect-MSIntuneGraph Failed. Exiting" -ForegroundColor "Red"
