@@ -1,0 +1,1 @@
+cmd /c powershell -version 5 -ex bypass -File "%~DP0WinGet-WrapperImportGUI.ps1"
