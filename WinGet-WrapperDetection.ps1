@@ -111,7 +111,7 @@ if ($env:USERNAME -like "*$env:COMPUTERNAME*") {
 # Find WinGet.exe Location
 if ($Context -contains "Machine"){
     try {
-        $resolveWingetPath = Resolve-Path "C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_*_x64__8wekyb3d8bbwe"
+        $resolveWingetPath = Resolve-Path "C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_*__8wekyb3d8bbwe"
         if ($resolveWingetPath) {
             $wingetPath = $resolveWingetPath[-1].Path
             $wingetPath = $wingetPath + "\winget.exe"
