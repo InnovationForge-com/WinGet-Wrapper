@@ -797,14 +797,14 @@ function ParseSearchResults($searchResult) {
     $searchResult -split "`n" | Where-Object { $_ -match $pattern } | ForEach-Object {
         $parsedName = $Matches[1].Trim()
         $parsedID = $Matches[2].Trim()
-        $parsedID = $parsedID -replace "ÔÇª", ""  # Remove ellipsis character from ID
+        $parsedID = $parsedID -replace 'ÔÇª', ''  # Remove ellipsis character from ID
         $parsedVersion = $Matches[3].Trim()
 
         # Add parsed and cleaned data to the result
         $parsedData += [PSCustomObject]@{
-            "Name"    = $parsedName
-            "ID"      = $parsedID
-            "Version" = $parsedVersion
+            'Name' = $parsedName
+            'ID' = $parsedID
+            'Version' = $parsedVersion
         }
     }
     Write-ConsoleTextBox "Finished"
