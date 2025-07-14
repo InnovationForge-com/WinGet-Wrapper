@@ -1,7 +1,7 @@
 # Soren Lundt - 12-02-2024
 # URL: https://github.com/SorenLundt/WinGet-Wrapper
 # License: https://raw.githubusercontent.com/SorenLundt/WinGet-Wrapper/main/LICENSE.txt
-# Graphical interface for WinGet-Wrapper Import
+# Graphical interface for WinGet-Wrapper Import - WPF Version
 # Package content is stored under Packages\Package.ID-Context-UpdateOnly-UserName-yyyy-mm-dd-hhssmm
 
 # Requirements:
@@ -12,6 +12,7 @@
 # Version 1.1 - 21-02-2024 SorenLundt - Fixed issue where only 1 package was imported to InTune (Script assumed there was just one row)
 # Version 1.2 - 30-10-2024 SorenLundt - Various improvements (Ability to get details and available versions for packages, loading GUI progressbar, link to repo, unblock script files, bug fixes.)
 # Version 1.3 - 31-10-2024 SorenLundt - Added Column Definitions help button, added SKIPMODULECHECK param to skip check if required modules are up-to-date. (testing use)
+# Version 2.0 - 14-07-2025 - Converted to WPF for modern UI
 
 #Parameters
 Param (
@@ -44,9 +45,10 @@ function Show-ConsoleProgress {
 # Update ConsoleProgress
 Show-ConsoleProgress -PercentComplete 0 -Status "Initializing..."
 
-# Add required assemblies
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
+# Add required assemblies for WPF
+Add-Type -AssemblyName PresentationFramework
+Add-Type -AssemblyName PresentationCore
+Add-Type -AssemblyName WindowsBase
 
 # Set the timestamp for log file
 $timestamp = Get-Date -Format "yyyyMMddHHmmss"
@@ -61,7 +63,6 @@ else {
 
 # Create logs folder if it doesn't exist
 $LogFolder = Join-Path -Path $scriptRoot -ChildPath "Logs"
-# Create logs folder if it doesn't exist
 if (-not (Test-Path -Path $LogFolder)) {
     New-Item -Path $LogFolder -ItemType Directory | Out-Null
 }
@@ -71,12 +72,8 @@ $intuneWin32AppModule = "IntuneWin32App"
 $microsoftGraphIntuneModule = "Microsoft.Graph.Intune"
 $microsoftGraphAuthenticationModule = "Microsoft.Graph.Authentication"
 
-#DEBUG (Skip ModuleCheck)
-#$SKIPMODULECHECK = $true 
 if (-not $SKIPMODULECHECK) {
-
     # Check IntuneWin32App module
-    # Update ConsoleProgress
     Show-ConsoleProgress -PercentComplete 10 -Status "Checking and updating $intuneWin32AppModule.."  
     $moduleInstalled = Get-InstalledModule -Name $intuneWin32AppModule -ErrorAction SilentlyContinue
     if (-not $moduleInstalled) {
@@ -91,11 +88,10 @@ if (-not $SKIPMODULECHECK) {
             Write-Host "Module $intuneWin32AppModule is already up-to-date." -ForegroundColor Green
         }
     }
+
     # Check Microsoft.Graph.Intune module
-    # Update ConsoleProgress
     Show-ConsoleProgress -PercentComplete 40 -Status "Checking and updating $microsoftGraphIntuneModule.."  
     $moduleInstalled = Get-InstalledModule -Name $microsoftGraphIntuneModule -ErrorAction SilentlyContinue
-
     if (-not $moduleInstalled) {
         Install-Module -Name $microsoftGraphIntuneModule -Force
     }
@@ -109,12 +105,9 @@ if (-not $SKIPMODULECHECK) {
         }
     }
 
-
     # Check Microsoft.Graph.Authentication module
-    # Update ConsoleProgress
     Show-ConsoleProgress -PercentComplete 40 -Status "Checking and updating $microsoftGraphAuthenticationModule.."  
     $moduleInstalled = Get-InstalledModule -Name $microsoftGraphAuthenticationModule -ErrorAction SilentlyContinue
-
     if (-not $moduleInstalled) {
         Install-Module -Name $microsoftGraphAuthenticationModule -Force
     }
@@ -125,11 +118,9 @@ if (-not $SKIPMODULECHECK) {
         }
         else {
             Write-Host "Module $microsoftGraphAuthenticationModule is already up-to-date." -ForegroundColor Green
-
         }
     }
 }
-
 
 #Import modules
 Show-ConsoleProgress -PercentComplete 60 -Status "Importing module $intuneWin32AppModule.."
@@ -153,6 +144,414 @@ foreach ($file in $files) {
 # Update ConsoleProgress
 Show-ConsoleProgress -PercentComplete 80 -Status "Loading functions.."   
 
+# Define WPF XAML
+$xaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="WinGet-Wrapper Import GUI - https://github.com/SorenLundt/WinGet-Wrapper" 
+        Height="1000" Width="1500"
+        Background="#F8F9FA" 
+        FontFamily="Segoe UI" 
+        FontSize="12"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize">
+    
+    <Window.Resources>
+        <!-- Modern Button Style -->
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="#007ACC"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="4"
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#005A9E"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#004578"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Secondary Button Style -->
+        <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#6C757D"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#5A6268"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#495057"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Danger Button Style -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#DC3545"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#C82333"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#BD2130"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Modern TextBox Style -->
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="8,8"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="BorderBrush" Value="#CED4DA"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Height" Value="52"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Height="{TemplateBinding Height}">
+                            <ScrollViewer x:Name="PART_ContentHost" 
+                                        Margin="8,0,8,0"
+                                        VerticalAlignment="Center"
+                                        VerticalScrollBarVisibility="Hidden"
+                                        HorizontalScrollBarVisibility="Hidden"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="#80BDFF"/>
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#007ACC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern DataGrid Style -->
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#DEE2E6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#F8F9FA"/>
+            <Setter Property="VerticalGridLinesBrush" Value="Transparent"/>
+            <Setter Property="RowBackground" Value="White"/>
+            <Setter Property="AlternatingRowBackground" Value="#F8F9FA"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="SelectionMode" Value="Extended"/>
+            <Setter Property="SelectionUnit" Value="FullRow"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="CanUserDeleteRows" Value="False"/>
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+        </Style>
+
+        <!-- DataGrid Header Style -->
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#495057"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="BorderBrush" Value="#495057"/>
+            <Setter Property="BorderThickness" Value="0,0,1,0"/>
+        </Style>
+
+        <!-- Card Style -->
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#DEE2E6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="8"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="#000000" Opacity="0.1" BlurRadius="10" ShadowDepth="2"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="300"/>
+        </Grid.RowDefinitions>
+
+        <!-- Search Section -->
+        <Border Grid.Row="0" Style="{StaticResource Card}" Margin="0,0,0,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBox Name="SearchBox" Width="400" MinWidth="300" VerticalContentAlignment="Center"
+                           Text="Search for software (e.g., VLC, Chrome, Firefox)"
+                           Foreground="Gray"
+                           ToolTip="Enter software name, ex. VLC, 7-zip, etc."/>
+                    <Button Name="SearchButton" Content="Search" Style="{StaticResource ModernButton}" 
+                          Width="130" MinWidth="100" Height="52" Margin="8,0,0,0"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Orientation="Vertical" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Name="GitHubLink" Text="Visit GitHub Repository" 
+                             Foreground="#007ACC" TextDecorations="Underline" 
+                             Cursor="Hand" FontSize="11" HorizontalAlignment="Right"/>
+                    <TextBlock Name="ColumnHelp" Text="Show Column Definitions" 
+                             Foreground="#6C757D" TextDecorations="Underline" 
+                             Cursor="Hand" FontSize="10" HorizontalAlignment="Right" Margin="0,4,0,0"/>
+                </StackPanel>
+                
+                <TextBlock Name="SearchStatus" Grid.Column="1" VerticalAlignment="Bottom" 
+                         Margin="16,0,0,0" FontSize="12" Foreground="#6C757D" TextWrapping="Wrap"/>
+            </Grid>
+        </Border>
+
+        <!-- Main Content Area -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Search Results Panel -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,4,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <TextBlock Grid.Row="0" Text="WinGet Packages" FontWeight="SemiBold" 
+                             FontSize="14" Margin="0,0,0,8"/>
+                    
+                    <DataGrid Name="SearchResults" Grid.Row="1">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="0.7*" MinWidth="140"/>
+                            <DataGridTextColumn Header="ID" Binding="{Binding ID}" Width="250"/>
+                            <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="120"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Name="GetPackageDetails" Content="Get Details" 
+                              Style="{StaticResource SecondaryButton}" Width="120"/>
+                        <Button Name="GetPackageVersions" Content="Get Versions" 
+                              Style="{StaticResource SecondaryButton}" Width="120"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Move Button -->
+            <Grid Grid.Column="1" Width="80" VerticalAlignment="Center">
+                <Button Name="MoveButton" Content="Move" FontSize="12" 
+                      Style="{StaticResource ModernButton}" Width="70" Height="50"
+                      ToolTip="Add Selected Package(s) to Import List"/>
+            </Grid>
+
+            <!-- Import List Panel -->
+            <Border Grid.Column="2" Style="{StaticResource Card}" Margin="4,0,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <TextBlock Grid.Row="0" Text="InTune Import List" FontWeight="SemiBold" 
+                             FontSize="14" Margin="0,0,0,8"/>
+                    
+                    <DataGrid Name="ImportList" Grid.Row="1">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="PackageID" Binding="{Binding PackageID}" Width="150"/>
+                            <DataGridTextColumn Header="Context" Binding="{Binding Context}" Width="80"/>
+                            <DataGridTextColumn Header="AcceptNewer" Binding="{Binding AcceptNewerVersion}" Width="90"/>
+                            <DataGridTextColumn Header="UpdateOnly" Binding="{Binding UpdateOnly}" Width="80"/>
+                            <DataGridTextColumn Header="TargetVersion" Binding="{Binding TargetVersion}" Width="100"/>
+                            <DataGridTextColumn Header="StopProcessInstall" Binding="{Binding StopProcessInstall}" Width="130"/>
+                            <DataGridTextColumn Header="StopProcessUninstall" Binding="{Binding StopProcessUninstall}" Width="140"/>
+                            <DataGridTextColumn Header="PreScriptInstall" Binding="{Binding PreScriptInstall}" Width="120"/>
+                            <DataGridTextColumn Header="PostScriptInstall" Binding="{Binding PostScriptInstall}" Width="130"/>
+                            <DataGridTextColumn Header="PreScriptUninstall" Binding="{Binding PreScriptUninstall}" Width="130"/>
+                            <DataGridTextColumn Header="PostScriptUninstall" Binding="{Binding PostScriptUninstall}" Width="140"/>
+                            <DataGridTextColumn Header="CustomArgInstall" Binding="{Binding CustomArgumentListInstall}" Width="130"/>
+                            <DataGridTextColumn Header="CustomArgUninstall" Binding="{Binding CustomArgumentListUninstall}" Width="140"/>
+                            <DataGridTextColumn Header="InstallIntent" Binding="{Binding InstallIntent}" Width="100"/>
+                            <DataGridTextColumn Header="Notification" Binding="{Binding Notification}" Width="90"/>
+                            <DataGridTextColumn Header="GroupID" Binding="{Binding GroupID}" Width="80"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Name="ImportCSV" Content="Import CSV" 
+                              Style="{StaticResource SecondaryButton}" Width="100"/>
+                        <Button Name="ExportCSV" Content="Export CSV" 
+                              Style="{StaticResource SecondaryButton}" Width="100"/>
+                        <Button Name="DeleteSelected" Content="Delete" 
+                              Style="{StaticResource DangerButton}" Width="100"/>
+                        <Button Name="ImportToInTune" Content="Import to InTune" 
+                              Style="{StaticResource ModernButton}" Width="120"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- InTune Configuration Section -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,8,0,8">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>                    // ...existing code...
+                    
+                            <!-- Console Output -->
+                            <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,0,0,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    
+                                    <TextBlock Grid.Row="0" Text="Console Output" FontWeight="SemiBold" 
+                                             FontSize="14" Margin="0,0,0,8"/>
+                                    
+                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" 
+                                                HorizontalScrollBarVisibility="Auto"
+                                                VerticalAlignment="Stretch"
+                                                HorizontalAlignment="Stretch">
+                                        <TextBox Name="ConsoleOutput" IsReadOnly="True" 
+                                               Background="Transparent" BorderThickness="0"
+                                               FontFamily="Consolas" FontSize="11"
+                                               TextWrapping="Wrap" AcceptsReturn="True"
+                                               Height="Auto" MinHeight="250"
+                                               VerticalAlignment="Stretch"
+                                               HorizontalAlignment="Stretch"/>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Border>
+                    
+                    // ...existing code...
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <TextBlock Grid.Row="0" Text="Microsoft InTune Import Configuration" 
+                         FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+                
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="200"/>
+                        <ColumnDefinition Width="*" MinWidth="200"/>
+                        <ColumnDefinition Width="*" MinWidth="250"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                        <TextBlock Text="Tenant ID" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2"/>
+                        <TextBox Name="TenantID" Height="36"
+                               Text="company.onmicrosoft.com"
+                               Foreground="Black"/>
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Column="1" Margin="8,0">
+                        <TextBlock Text="Client ID" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2"/>
+                        <TextBox Name="ClientID" Height="36"
+                               Text="14d82eec-204b-4c2f-b7e8-296a70dab67e"/>
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Column="2" Margin="8,0,0,0">
+                        <TextBlock Text="Redirect URI" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2"/>
+                        <TextBox Name="RedirectURI" Height="36"
+                               Text="https://login.microsoftonline.com/common/oauth2/nativeclient"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Console Output -->
+        <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,0,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <TextBlock Grid.Row="0" Text="Console Output" FontWeight="SemiBold" 
+                         FontSize="14" Margin="0,0,0,8"/>
+                
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" 
+                            HorizontalScrollBarVisibility="Auto"
+                            VerticalAlignment="Stretch"
+                            HorizontalAlignment="Stretch">
+                    <TextBox Name="ConsoleOutput" IsReadOnly="True" 
+                           Background="Transparent" BorderThickness="0"
+                           FontFamily="Consolas" FontSize="11"
+                           TextWrapping="Wrap" AcceptsReturn="True"
+                           Height="Auto" MinHeight="250"
+                           VerticalAlignment="Stretch"
+                           HorizontalAlignment="Stretch"/>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
+"@
+
+# Load XAML
+try {
+    $reader = New-Object System.Xml.XmlNodeReader ([xml]$xaml)
+    $window = [Windows.Markup.XamlReader]::Load($reader)
+}
+catch {
+    Write-Error "Failed to load XAML: $_"
+    exit 1
+}
+
+# Get WPF controls
+$searchBox = $window.FindName("SearchBox")
+$searchButton = $window.FindName("SearchButton")
+$searchStatus = $window.FindName("SearchStatus")
+$searchResults = $window.FindName("SearchResults")
+$moveButton = $window.FindName("MoveButton")
+$importList = $window.FindName("ImportList")
+$getPackageDetails = $window.FindName("GetPackageDetails")
+$getPackageVersions = $window.FindName("GetPackageVersions")
+$importCSV = $window.FindName("ImportCSV")
+$exportCSV = $window.FindName("ExportCSV")
+$deleteSelected = $window.FindName("DeleteSelected")
+$tenantID = $window.FindName("TenantID")
+$clientID = $window.FindName("ClientID")
+$redirectURI = $window.FindName("RedirectURI")
+$importToInTune = $window.FindName("ImportToInTune")
+$consoleOutput = $window.FindName("ConsoleOutput")
+$gitHubLink = $window.FindName("GitHubLink")
+$columnHelp = $window.FindName("ColumnHelp")
+
 #Functions
 function Write-ConsoleTextBox {
     param (
@@ -168,10 +567,13 @@ function Write-ConsoleTextBox {
     # Output to the console
     Write-Host $Message
     
-    # Append to the console textbox
-    $consoleTextBox.AppendText("$Message`r`n")
+    # Append to the console textbox in WPF
+    $window.Dispatcher.Invoke([System.Action]{
+        $consoleOutput.AppendText("$Message`r`n")
+        # Auto-scroll to bottom
+        $consoleOutput.ScrollToEnd()
+    })
 }
-
 
 # Function to read log file and update the GUI
 function Update-GUIFromLogFile {
@@ -187,556 +589,7 @@ function Update-GUIFromLogFile {
     }
 }
 
-# Update ConsoleProgress
-Show-ConsoleProgress -PercentComplete 90 -Status "Loading GUI elements.."   
-
-# GUI
-# Create form
-$form = New-Object System.Windows.Forms.Form
-$form.Text = "Winget-Wrapper Import GUI  - https://github.com/SorenLundt/WinGet-Wrapper"
-$form.Width = 1475
-$form.Height = 980
-$form.BackColor = [System.Drawing.Color]::WhiteSmoke
-$form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedSingle
-$form.Topmost = $false
-$form.MaximizeBox = $False
-
-# Set the icon for the form
-Write-Host "$scriptRoot"
-$iconPath = Join-Path -Path $scriptRoot -ChildPath "Winget-Wrapper.ico"
-if (Test-Path $iconPath) {
-    $icon = New-Object System.Drawing.Icon($iconPath)
-    $form.Icon = $icon
-}
-else {
-    Write-Host "Icon file not found at $iconPath"
-}
-
-<# Create a Link to GitHub page
-$linkLabelGitHub = New-Object System.Windows.Forms.LinkLabel
-$linkLabelGitHub.Text = "Visit the GitHub Repository"
-$linkLabelGitHub.Location = New-Object System.Drawing.Point(1296, 5)  # Adjusted position for better layout
-$linkLabelGitHub.AutoSize = $true
-$linkLabelGitHub.LinkColor = [System.Drawing.Color]::Blue
-$linkLabelGitHub.Font = New-Object System.Drawing.Font("Arial", 8, [System.Drawing.FontStyle]::Bold)  # Use the same font as the Column Guide
-$linkLabelGitHub.BackColor = [System.Drawing.Color]::LightGray  # Background color for consistency
-$linkLabelGitHub.Padding = New-Object System.Windows.Forms.Padding(1)  # Add padding for consistency
-$linkLabelGitHub.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle  # Add a border to make it stand out
-$form.Controls.Add($linkLabelGitHub)#>
-
-# Create a Link to GitHub page
-$linkLabelGitHub = New-Object System.Windows.Forms.LinkLabel
-$linkLabelGitHub.Text = "Visit the GitHub Repository"
-$linkLabelGitHub.Location = New-Object System.Drawing.Point(1280, 10)
-$linkLabelGitHub.AutoSize = $true
-$linkLabelGitHub.LinkColor = [System.Drawing.Color]::Blue
-$linkLabelGitHub.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Underline)
-$form.Controls.Add($linkLabelGitHub)
-
-# Create a help label to get column definitions
-$ColumnHelpLabel = New-Object System.Windows.Forms.Label
-$ColumnHelpLabel.Text = "Show Column Definitions"
-$ColumnHelpLabel.Location = New-Object System.Drawing.Point(1310, 40)
-$ColumnHelpLabel.AutoSize = $true
-#$ColumnHelpLabel.ForeColor = [System.Drawing.Color]::Blue  # Set text color to blue
-$ColumnHelpLabel.Font = New-Object System.Drawing.Font("Arial", 8, [System.Drawing.FontStyle]::Bold)  # Make the text bold
-$ColumnHelpLabel.BackColor = [System.Drawing.Color]::LightGray  # Background color for contrast
-$ColumnHelpLabel.Padding = New-Object System.Windows.Forms.Padding(1)  # Add some padding around the text
-$form.Controls.Add($ColumnHelpLabel)
-
-# Add click event to the LinkLabel
-$linkLabelGitHub.Add_LinkClicked({
-        Start-Process "https://github.com/SorenLundt/WinGet-Wrapper"  # Change to your desired URL
-    })
-
-# Click event for Column Help Button
-$ColumnHelpLabel.Add_Click({
-        GetColumnDefinitions
-    })
-
-# Create TextBox for search string
-$searchBox = New-Object System.Windows.Forms.TextBox
-$searchBox.Location = New-Object System.Drawing.Point(10, 10)
-$searchBox.Width = 400
-$form.Controls.Add($searchBox)
-$searchBoxtooltip = New-Object System.Windows.Forms.ToolTip
-$searchBoxtooltip.SetToolTip($searchBox, "Enter software name, ex. VLC, 7-zip, etc.")
-
-# Create Button for search
-$searchButton = New-Object System.Windows.Forms.Button
-$searchButton.Location = New-Object System.Drawing.Point(420, 8)
-$searchButton.Width = 50
-$searchButton.Text = "Search"
-$form.Controls.Add($searchButton)
-
-# Create Label to display search error
-$searchErrorLabel = New-Object System.Windows.Forms.Label
-$searchErrorLabel.Location = New-Object System.Drawing.Point(480, 10)
-$searchErrorLabel.Width = 500
-#$searchErrorLabel.ForeColor = [System.Drawing.Color]::Tomato
-$form.Controls.Add($searchErrorLabel)
-
-# Create Label for $dataGridView (Results)
-$resultsLabel = New-Object System.Windows.Forms.Label
-$resultsLabel.Location = New-Object System.Drawing.Point(10, 37)
-$resultsLabel.Width = 200
-$resultsLabel.Text = "WinGet Packages"
-$form.Controls.Add($resultsLabel)
-
-# Create DataGridView for results
-$dataGridView = New-Object System.Windows.Forms.DataGridView
-$dataGridView.Location = New-Object System.Drawing.Point(10, 60)
-$dataGridView.Width = 600
-$dataGridView.Height = 500
-$dataGridView.SelectionMode = [System.Windows.Forms.DataGridViewSelectionMode]::FullRowSelect  # Only allow full row selection
-$form.Controls.Add($dataGridView)
-
-# Add columns to DataGridView
-$dataGridView.Columns.Add("Name", "Name")
-$dataGridView.Columns.Add("ID", "ID")
-$dataGridView.Columns.Add("Version", "Version")
-
-# Set initial widths for columns in the DataGridView
-$dataGridView.Columns["Name"].Width = 200  # Adjust the width as needed
-$dataGridView.Columns["ID"].Width = 150    # Adjust the width as needed
-$dataGridView.Columns["Version"].Width = 100  # Adjust the width as needed
-
-# Create Label for $dataGridView (Selected)
-$resultsLabel = New-Object System.Windows.Forms.Label
-$resultsLabel.Location = New-Object System.Drawing.Point(650, 37)
-$resultsLabel.Width = 200
-$resultsLabel.Text = "InTune Import List"
-$form.Controls.Add($resultsLabel)
-
-# Create a second DataGridView
-$dataGridViewSelected = New-Object System.Windows.Forms.DataGridView
-$dataGridViewSelected.Location = New-Object System.Drawing.Point(650, 60)
-$dataGridViewSelected.Width = 800
-$dataGridViewSelected.Height = 500
-$form.Controls.Add($dataGridViewSelected)
-
-# Add columns to the second DataGridView
-$dataGridViewSelected.Columns.Add("PackageID", "PackageID")
-$dataGridViewSelected.Columns.Add("Context", "Context")
-$dataGridViewSelected.Columns.Add("AcceptNewerVersion", "AcceptNewerVersion")
-$dataGridViewSelected.Columns.Add("UpdateOnly", "UpdateOnly")
-$dataGridViewSelected.Columns.Add("TargetVersion", "TargetVersion")
-$dataGridViewSelected.Columns.Add("StopProcessInstall", "StopProcessInstall")
-$dataGridViewSelected.Columns.Add("StopProcessUninstall", "StopProcessUninstall")
-$dataGridViewSelected.Columns.Add("PreScriptInstall", "PreScriptInstall")
-$dataGridViewSelected.Columns.Add("PostScriptInstall", "PostScriptInstall")
-$dataGridViewSelected.Columns.Add("PreScriptUninstall", "PreScriptUninstall")
-$dataGridViewSelected.Columns.Add("PostScriptUninstall", "PostScriptUninstall")
-$dataGridViewSelected.Columns.Add("CustomArgumentListInstall", "CustomArgumentListInstall")
-$dataGridViewSelected.Columns.Add("CustomArgumentListUninstall", "CustomArgumentListUninstall")
-$dataGridViewSelected.Columns.Add("InstallIntent", "InstallIntent")
-$dataGridViewSelected.Columns.Add("Notification", "Notification")
-$dataGridViewSelected.Columns.Add("GroupID", "GroupID")
-
-# Set initial widths for columns in the DataGridViewSelected
-foreach ($column in $dataGridViewSelected.Columns) {
-    $column.Width = "80"
-}
-
-# Create Button for exporting CSV from dataGridViewSelected
-$exportButton = New-Object System.Windows.Forms.Button
-$exportButton.Location = New-Object System.Drawing.Point(760, 565)
-$exportButton.Width = 100
-$exportButton.Text = "Export CSV"
-$form.Controls.Add($exportButton)
-
-# Create Button for moving selected rows with a right-arrow icon
-$moveButton = New-Object System.Windows.Forms.Button
-$moveButton.Location = New-Object System.Drawing.Point(618, 280)
-$moveButton.Width = 30
-$moveButton.Height = 30
-$moveButtontooltip = New-Object System.Windows.Forms.ToolTip
-$moveButtontooltip.SetToolTip($moveButton, "Add Selected Package(s) to Import List")
-
-# Create a Bitmap for the arrow icon
-$arrowIcon = New-Object System.Drawing.Bitmap 50, 50
-
-# Draw a right arrow onto the Bitmap
-$arrowGraphics = [System.Drawing.Graphics]::FromImage($arrowIcon)
-$arrowBrush = [System.Drawing.Brushes]::Black
-$arrowGraphics.FillPolygon($arrowBrush, @(
-        [System.Drawing.Point]::new(10, 10),
-        [System.Drawing.Point]::new(30, 25),
-        [System.Drawing.Point]::new(10, 40)
-    ))
-$arrowGraphics.Dispose()
-
-# Set the button's appearance and icon
-$moveButton.FlatStyle = "Flat"
-$moveButton.FlatAppearance.BorderSize = 0
-$moveButton.BackgroundImage = $arrowIcon
-$moveButton.BackgroundImageLayout = "Stretch"
-$moveButton.Text = ""
-$form.Controls.Add($moveButton)
-
-# Create Button for deleting selected rows
-$deleteButton = New-Object System.Windows.Forms.Button
-$deleteButton.Location = New-Object System.Drawing.Point(1350, 565)
-$deleteButton.Width = 100
-$deleteButton.Text = "Delete Selected"
-$form.Controls.Add($deleteButton)
-
-# Create Button for importing CSV to dataGridViewSelected
-$importCSVButton = New-Object System.Windows.Forms.Button
-$importCSVButton.Location = New-Object System.Drawing.Point(650, 565)
-$importCSVButton.Width = 100
-$importCSVButton.Text = "Import CSV"
-$form.Controls.Add($importCSVButton)
-
-# Create a TextBox for console output
-$consoleTextBox = New-Object System.Windows.Forms.TextBox
-$consoleTextBox.Location = New-Object System.Drawing.Point(10, 680)
-$consoleTextBox.Width = 1420
-$consoleTextBox.Height = 280
-$consoleTextBox.Multiline = $true
-$consoleTextBox.ScrollBars = "Vertical"
-$form.Controls.Add($consoleTextBox)
-
-# Create Button for importing data into InTune
-$InTuneimportButton = New-Object System.Windows.Forms.Button
-$InTuneimportButton.Location = New-Object System.Drawing.Point(650, 640)
-$InTuneimportButton.Width = 120
-$InTuneimportButton.Text = "Import to InTune"
-$IntuneImportButton.Visible = $True
-$form.Controls.Add($InTuneimportButton)
-
-# Create Label for $tenantId
-$tenantIdLabel = New-Object System.Windows.Forms.Label
-$tenantIdLabel.Location = New-Object System.Drawing.Point(650, 600)
-$tenantIdLabel.Width = 200
-$tenantIdLabel.Height = 15
-$tenantIdLabel.Text = "Tenant ID"
-$form.Controls.Add($tenantIdLabel)
-
-# Create TextBox for Tenant ID
-$tenantIDTextBox = New-Object System.Windows.Forms.TextBox
-$tenantIDTextBox.Location = New-Object System.Drawing.Point(650, 615)
-$tenantIDTextBox.Width = 250
-$form.Controls.Add($tenantIDTextBox)
-
-# Help text for Tenant ID textbox
-$tenantIDTextBoxDefaultText = "Enter Tenant ID (e.g., company.onmicrosoft.com)"
-$tenantIDTextBox.Text = "$tenantIDTextBoxDefaultText"
-$tenantIDTextBox.ForeColor = [System.Drawing.Color]::Gray
-
-# Create Label for $clientId
-$clientIdLabel = New-Object System.Windows.Forms.Label
-$clientIdLabel.Location = New-Object System.Drawing.Point(920, 600)
-$clientIdLabel.Width = 50
-$clientIdLabel.Height = 15
-$clientIdLabel.Text = "Client ID"
-$form.Controls.Add($clientIdLabel)
-
-$clientIdDefaultLabel = New-Object System.Windows.Forms.Label
-$clientIdDefaultLabel.Location = New-Object System.Drawing.Point(970, 600)
-$clientIdDefaultLabel.Width = 230
-$clientIdDefaultLabel.Height = 15
-$clientIdDefaultLabel.Font = New-Object System.Drawing.Font("Arial", 8)
-$clientIdDefaultLabel.ForeColor = [System.Drawing.Color]::Gray
-$clientIdDefaultLabel.Text = "Default: Microsoft Graph Command Line Tools"
-$form.Controls.Add($clientIdDefaultLabel)
-
-
-# Create TextBox for Client ID
-$clientIDTextBox = New-Object System.Windows.Forms.TextBox
-$clientIDTextBox.Location = New-Object System.Drawing.Point(920, 615)
-$clientIDTextBox.Width = 280
-$form.Controls.Add($clientIDTextBox)
-
-# Help text for Client textbox
-$clientIDTextBox.Text = "14d82eec-204b-4c2f-b7e8-296a70dab67e"
-#$clientIDTextBox.ForeColor = [System.Drawing.Color]::Gray
-
-# Create Label for $redirectURI
-$redirectLabel = New-Object System.Windows.Forms.Label
-$redirectLabel.Location = New-Object System.Drawing.Point(1210, 600)
-$redirectLabel.Width = 190
-$redirectLabel.Height = 15
-$redirectLabel.Text = "Redirect URI"
-$form.Controls.Add($redirectLabel)
-
-# Create TextBox for Redirect URL
-$redirectURLTextBox = New-Object System.Windows.Forms.TextBox
-$redirectURLTextBox.Location = New-Object System.Drawing.Point(1210, 615)
-$redirectURLTextBox.Width = 200
-$form.Controls.Add($redirectURLTextBox)
-
-# Help text for Redirect url textbox
-$redirectURLTextBox.Text = "https://login.microsoftonline.com/common/oauth2/nativeclient"
-#$redirectURLTextBox.ForeColor = [System.Drawing.Color]::Gray
-
-# Create Button for Getting Package Details
-$GetPackageDetails = New-Object System.Windows.Forms.Button
-$GetPackageDetails.Location = New-Object System.Drawing.Point(10, 565)
-$GetPackageDetails.Width = 240
-$GetPackageDetails.Text = "Get detailed info for selected package(s)"
-$GetPackageDetails.Visible = $True
-$form.Controls.Add($GetPackageDetails)
-
-# Create Button for Getting Package Versions
-$GetPackageVersions = New-Object System.Windows.Forms.Button
-$GetPackageVersions.Location = New-Object System.Drawing.Point(260, 565)
-$GetPackageVersions.Width = 240
-$GetPackageVersions.Text = "Get available versions for selected package(s)"
-$GetPackageVersions.Visible = $True
-$form.Controls.Add($GetPackageVersions)
-
-# Update ConsoleProgress
-Show-ConsoleProgress -PercentComplete 95 -Status "Loading Event handlers.."
-
-# EVENTS
-# Event handler for when the textbox gains focus (Enter event)
-$tenantIDTextBox.Add_Enter({
-        if ($tenantIDTextBox.Text -eq "$tenantIDTextBoxDefaultText") {
-            $tenantIDTextBox.Text = ""
-            $tenantIDTextBox.ForeColor = [System.Drawing.Color]::Black
-        }
-    })
-
-# Event handler for when the textbox loses focus (Leave event)
-$tenantIDTextBox.Add_Leave({
-        if ([string]::IsNullOrWhiteSpace($tenantIDTextBox.Text)) {
-            $tenantIDTextBox.Text = "$tenantIDTextBoxDefaultText"
-            $tenantIDTextBox.ForeColor = [System.Drawing.Color]::Gray
-        }
-    })
-
-# Event handler for when the textbox gains focus (Enter event)
-$clientIDTextBox.Add_Enter({
-        if ($clientIDTextBox.Text -eq "$clientIDTextBoxDefaultText") {
-            $clientIDTextBox.Text = ""
-            $clientIDTextBox.ForeColor = [System.Drawing.Color]::Black
-        }
-    })
-
-# Event handler for when the textbox loses focus (Leave event)
-$clientIDTextBox.Add_Leave({
-        if ([string]::IsNullOrWhiteSpace($clientIDTextBox.Text)) {
-            $clientIDTextBox.Text = "$clientIDTextBoxDefaultText"
-            $clientIDTextBox.ForeColor = [System.Drawing.Color]::Gray
-        }
-    })
-
-# Event handler for when the textbox gains focus (Enter event)
-$redirectURLTextBox.Add_Enter({
-        if ($redirectURLTextBox.Text -eq "$redirectURLTextBoxDefaultText") {
-            $redirectURLTextBox.Text = ""
-            $redirectURLTextBox.ForeColor = [System.Drawing.Color]::Black
-        }
-    })
-
-# Event handler for when the textbox loses focus (Leave event)
-$redirectURLTextBox.Add_Leave({
-        if ([string]::IsNullOrWhiteSpace($redirectURLTextBox.Text)) {
-            $redirectURLTextBox.Text = "$redirectURLTextBoxDefaultText"
-            $redirectURLTextBox.ForeColor = [System.Drawing.Color]::Gray
-        }
-    })
-
-# Event handler for deleting selected rows
-$deleteButton.Add_Click({
-        foreach ($row in $dataGridViewSelected.SelectedRows) {
-            $packageID = $row.Cells["PackageID"].Value
-            $dataGridViewSelected.Rows.Remove($row)
-            Write-ConsoleTextBox "Removed '$PackageID' from import list"
-
-        }
-
-        # Autosize columns after deleting rows
-        $dataGridViewSelected.AutoResizeColumns([System.Windows.Forms.DataGridViewAutoSizeColumnMode]::AllCells)
-    })
-# Event handler for importing CSV
-$importCSVButton.Add_Click({
-        $openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-        $openFileDialog.InitialDirectory = (Get-Location).Path
-        $openFileDialog.Filter = "CSV files (*.csv)|*.csv"
-    
-        $result = $openFileDialog.ShowDialog()
-        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-            $csvFilePath = $openFileDialog.FileName
-        
-            # Load CSV data into a PowerShell object
-            $importedData = Import-Csv -Path $csvFilePath
-        
-            # Clear existing rows in $dataGridViewSelected
-            $dataGridViewSelected.Rows.Clear()
-        
-            # Add rows to $dataGridViewSelected from imported data
-            foreach ($row in $importedData) {
-                $dataGridViewSelected.Rows.Add(
-                    $row.PackageID, 
-                    $row.Context, 
-                    $row.AcceptNewerVersion, 
-                    $row.UpdateOnly, 
-                    $row.TargetVersion, 
-                    $row.StopProcessInstall, 
-                    $row.StopProcessUninstall, 
-                    $row.PreScriptInstall, 
-                    $row.PostScriptInstall, 
-                    $row.PreScriptUninstall, 
-                    $row.PostScriptUninstall, 
-                    $row.CustomArgumentListInstall, 
-                    $row.CustomArgumentListUninstall, 
-                    $row.InstallIntent, 
-                    $row.Notification, 
-                    $row.GroupID
-                )
-            }
-        }
-        else {
-            $dataGridViewSelected.Rows.Clear()
-        }
-
-        # Autosize columns in $dataGridViewSelected after import
-        $dataGridViewSelected.AutoResizeColumns([System.Windows.Forms.DataGridViewAutoSizeColumnMode]::AllCells)
-    })
-
-# Event handler for exporting CSV
-$exportButton.Add_Click({
-        # Check if DataGridView is not empty
-        if ($dataGridViewSelected.Rows.Count -gt 0) {
-            # Create an empty array to store the selected data
-            $selectedData = @()
-
-            # Iterate through DataGridView rows
-            foreach ($row in $dataGridViewSelected.Rows) {
-                $packageID = $row.Cells["PackageID"].Value
-                $context = $row.Cells["Context"].Value
-                $acceptNewerVersion = $row.Cells["AcceptNewerVersion"].Value
-                $updateOnly = $row.Cells["UpdateOnly"].Value
-
-                # Check if all required values are not null or empty
-                if ($packageID -ne $null -and $packageID -ne "" -and
-                    $context -ne $null -and $context -ne "" -and
-                    $acceptNewerVersion -ne $null -and $acceptNewerVersion -ne "" -and
-                    $updateOnly -ne $null -and $updateOnly -ne "") {
-                    # Create a hashtable representing the row data and add it to the selected data array
-                    $rowData = [ordered]@{
-                        "PackageID"                   = $packageID
-                        "Context"                     = $context
-                        "AcceptNewerVersion"          = $acceptNewerVersion
-                        "UpdateOnly"                  = $updateOnly
-                        "TargetVersion"               = $row.Cells["TargetVersion"].Value
-                        "StopProcessInstall"          = $row.Cells["StopProcessInstall"].Value
-                        "StopProcessUninstall"        = $row.Cells["StopProcessUninstall"].Value
-                        "PreScriptInstall"            = $row.Cells["PreScriptInstall"].Value
-                        "PostScriptInstall"           = $row.Cells["PostScriptInstall"].Value
-                        "PreScriptUninstall"          = $row.Cells["PreScriptUninstall"].Value
-                        "PostScriptUninstall"         = $row.Cells["PostScriptUninstall"].Value
-                        "CustomArgumentListInstall"   = $row.Cells["CustomArgumentListInstall"].Value
-                        "CustomArgumentListUninstall" = $row.Cells["CustomArgumentListUninstall"].Value
-                        "InstallIntent"               = $row.Cells["InstallIntent"].Value
-                        "Notification"                = $row.Cells["Notification"].Value
-                        "GroupID"                     = $row.Cells["GroupID"].Value
-                    }
-                    $selectedData += New-Object PSObject -Property $rowData
-                }
-            }
-
-            # Check if any valid data was extracted
-            if ($selectedData.Count -gt 0) {
-                $defaultFileName = "WinGet-WrapperImportGUI-$timestamp.csv"
-                $saveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
-                $saveFileDialog.InitialDirectory = (Get-Location).Path
-                $saveFileDialog.FileName = $defaultFileName
-                $saveFileDialog.Filter = "CSV files (*.csv)|*.csv"
-            
-                $result = $saveFileDialog.ShowDialog()
-                if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-                    $csvFilePath = $saveFileDialog.FileName
-                    $selectedData | Export-Csv -Path $csvFilePath -NoTypeInformation
-                    Write-ConsoleTextBox "Exported: $csvFilePath"
-                }
-                else {
-                    Write-ConsoleTextBox "No data exported."
-                }
-            }
-            else {
-                Write-ConsoleTextBox "No valid data to export."
-            }
-        }
-        else {
-            Write-ConsoleTextBox "No data to export."
-        }
-    })
-
-
-# Event handler for moving selected rows
-$moveButton.Add_Click({
-        $selectedRows = $dataGridView.SelectedRows
-        foreach ($row in $selectedRows) {
-            $name = $row.Cells["Name"].Value
-            $id = $row.Cells["ID"].Value
-            $version = $row.Cells["Version"].Value
-        
-            # Add a new row to $dataGridViewSelected
-            $rowIndex = $dataGridViewSelected.Rows.Add()
-        
-            # Set the "PackageID" column with the value from the selected row's "Name" column
-            $dataGridViewSelected.Rows[$rowIndex].Cells["PackageID"].Value = $id
-
-            # Set default values for other columns
-            $dataGridViewSelected.Rows[$rowIndex].Cells["Context"].Value = "Machine"
-            $dataGridViewSelected.Rows[$rowIndex].Cells["AcceptNewerVersion"].Value = "1"
-            $dataGridViewSelected.Rows[$rowIndex].Cells["UpdateOnly"].Value = "0"
-        
-            # Autosize columns in $dataGridViewSelected after adding rows and setting values
-            $dataGridViewSelected.AutoResizeColumns([System.Windows.Forms.DataGridViewAutoSizeColumnMode]::AllCells)
-
-            Write-ConsoleTextBox "Added '$id' to import list"
-
-            # Optionally remove the row from the original DataGridView
-            #$dataGridView.Rows.Remove($row)  # Do not remove row after copy to selected datagridview
-        }
-    })
-
-# Function to write Column Definitions to ConsoleWriteBox
-Function GetColumnDefinitions {
-    # Fetch the content of the README.md file
-    $url = "https://raw.githubusercontent.com/SorenLundt/WinGet-Wrapper/main/README.md"
-    Write-ConsoleTextBox "$url"
-    $response = Invoke-WebRequest -Uri $url
-
-    # Check if the request was successful
-    if ($response.StatusCode -eq 200) {
-        $content = $response.Content
-
-        # Get column names dynamically from the DataGridView
-        $columnNames = @()
-        foreach ($column in $dataGridViewSelected.Columns) {
-            $columnNames += $column.Name  # Collect column names into an array
-        }
-        Write-ConsoleTextBox "Column Name --> Description"
-        Write-ConsoleTextBox "****************************"        
-        # Loop through each column name
-        foreach ($columnName in $columnNames) {
-            # Use regex to find the line corresponding to the column name
-            if ($content -match "\* $columnName\s*=\s*(.*?)<br>") {
-                $description = $matches[1] -replace "<br>", "`n" -replace "\* ", "" # Clean up the description
-                Write-ConsoleTextBox "$columnName --> $description"
-            }
-            else {
-                Write-ConsoleTextBox "$columnName --> No description found."
-            }
-        }
-        Write-ConsoleTextBox "****************************"
-    }
-    else {
-        Write-ConsoleTextBox "Failed to retrieve the README file. Status code: $($response.StatusCode)"
-    }
-}
-
-
-
-
-
-
-# Function to get WinGet package details for a single/selected package (to find possible winget values, system, versions, etc etc.)
+# Function to get WinGet package details for a single/selected package
 function WinGetPackageDetails {
     param (
         [string]$PackageID
@@ -750,12 +603,11 @@ function WinGetPackageDetails {
     $WingetPackageDetails -split "`r?`n" | ForEach-Object { Write-ConsoleTextBox $_ }
     Write-ConsoleTextBox "_"  # Separator for readability
 
-
     # Optionally return the available versions array for further processing
     return $WinGetPackageDetails
 }
 
-# Function to get WinGet package versions for a single/selected package (to find possible winget values, system, versions, etc etc.)
+# Function to get WinGet package versions for a single/selected package
 function WinGetPackageVersions {
     param (
         [string]$PackageID
@@ -785,9 +637,8 @@ function WinGetPackageVersions {
     }
 
     # Return the available versions array for further processing
-    return $WinGetPackageVersions  # Return the array using the specified variable name
+    return $WinGetPackageVersions
 }
-
 
 # Define a function to parse the search results
 function ParseSearchResults($searchResult) {
@@ -809,20 +660,21 @@ function ParseSearchResults($searchResult) {
     }
     Write-ConsoleTextBox "Finished"
     return $parsedData
-
 }
+
 # Define the PerformSearch function that uses the parsing function
 function PerformSearch {
     $searchString = $searchBox.Text
-    $searchErrorLabel.Text = "Searching for '$searchString'"
+    $searchStatus.Text = "Searching for '$searchString'..."
 
-    #Update winget sources (to prevent source updating as part of results, wierd output)
+    #Update winget sources (to prevent source updating as part of results, weird output)
     @(winget source update)
 
     # Search Logic
     if (![string]::IsNullOrWhiteSpace($searchString)) {
         Write-ConsoleTextBox "winget search --query $searchString --source WinGet --accept-source-agreements --disable-interactivity"
         $searchResult = @(winget search --query $searchString --source WinGet --accept-source-agreements --disable-interactivity)
+        
         # Splitting the search result into lines for logging purposes
         $lines = $searchResult -split "`r`n"
 
@@ -830,196 +682,351 @@ function PerformSearch {
         foreach ($line in $lines) {
             Write-ConsoleTextBox $line
         }
+        
         if ($searchResult -contains "No package found matching input criteria.") {
-            $dataGridView.Rows.Clear()
-            $searchErrorLabel.Text = "No WinGet package found for search query '$searchString'"
+            $searchResults.ItemsSource = $null
+            $searchStatus.Text = "No WinGet package found for search query '$searchString'"
         }
         else {
-            # Clear existing rows from DataGridView
-            $dataGridView.Rows.Clear()
-
             # Parse the search result using the ParseSearchResults function
             $parsedSearchResult = ParseSearchResults -searchResult $searchResult |
             Where-Object { $null -ne $_.Name -and $_.Name -ne "" -and $_.Name.Trim() -ne "" }
 
-            # Add parsed data to DataGridView
-            $parsedSearchResult | ForEach-Object {
-                $row = $dataGridView.Rows.Add($_.Name, $_.ID, $_.Version)
-            }
-            $searchErrorLabel.Text = "Found $($dataGridView.RowCount) packages for '$searchString'"
+            # Set ItemsSource for WPF DataGrid
+            $searchResults.ItemsSource = $parsedSearchResult
+            $searchStatus.Text = "Found $($parsedSearchResult.Count) packages for '$searchString'"
         }
     }
     else {
-        $dataGridView.Rows.Clear()
-        $searchErrorLabel.Text = "Please enter a search query."
+        $searchResults.ItemsSource = $null
+        $searchStatus.Text = "Please enter a search query."
     }
 }
 
+# Function to write Column Definitions to ConsoleWriteBox
+Function GetColumnDefinitions {
+    # Fetch the content of the README.md file
+    $url = "https://raw.githubusercontent.com/SorenLundt/WinGet-Wrapper/main/README.md"
+    Write-ConsoleTextBox "$url"
+    
+    try {
+        $response = Invoke-WebRequest -Uri $url
 
-# Assign search function to the button click event
-$searchButton.Add_Click({ PerformSearch })
+        # Check if the request was successful
+        if ($response.StatusCode -eq 200) {
+            $content = $response.Content
 
-# Allow pressing Enter to trigger search
-$form.KeyPreview = $true
-$form.Add_KeyDown({
-        param($keySender, $keyEvent)
-        if ($keyEvent.KeyCode -eq "Enter") {
-            PerformSearch
-        }
-    })
-
-# Event Handler for Get package details button
-$GetPackageDetails.Add_Click({
-        $selectedRows = $dataGridView.SelectedRows
-        foreach ($row in $selectedRows) {
-            $id = $row.Cells["ID"].Value
-            WinGetPackageDetails -PackageID "$id"
-        }
-    })
-
-# Event Handler for Get package versions button
-$GetPackageVersions.Add_Click({
-        $selectedRows = $dataGridView.SelectedRows
-        foreach ($row in $selectedRows) {
-            $id = $row.Cells["ID"].Value
-            WinGetPackageVersions -PackageID "$id"
-        }
-    })
-
-# Event handler for the "Import to InTune" button
-$InTuneimportButton.Add_Click({
-        Write-ConsoleTextBox "Started import to InTune.."
-
-        # Check if $tenantIDTextBox.Text is empty, matches $tenantIDTextBoxDefaultText, or does not contain a dot
-        if ([string]::IsNullOrWhiteSpace($tenantIDTextBox.Text) -or $tenantIDTextBox.Text -eq $tenantIDTextBoxDefaultText -or -not ($tenantIDTextBox.Text -like "*.*")) {
-            Write-ConsoleTextBox "Please enter a valid Tenant ID before importing to InTune."
-            return  # Stop further execution
-        }
-
-        # List of files to check
-        $filesToCheck = @(
-            "WinGet-Wrapper.ps1",
-            "WinGet-WrapperDetection.ps1",
-            "WinGet-WrapperRequirements.ps1",
-            "WinGet-WrapperImportFromCSV.ps1",
-            "IntuneWinAppUtil.exe"
-        )
-
-        $foundAllFiles = $true
-        foreach ($file in $filesToCheck) {
-            $fileFullPath = Join-Path -Path $scriptRoot -ChildPath $file
-
-            if (-not (Test-Path -Path $fileFullPath -PathType Leaf)) {
-                # File not found, write a message to the console text box
-                Write-ConsoleTextBox "File '$file' was not found."
-                $foundAllFiles = $false
-            }
-            else {
-                # File found, write a message to the console text box
-                Write-ConsoleTextBox "File '$file' was found."
-            }
-        }
-
-        if ($foundAllFiles) {
-            Write-ConsoleTextBox "All required files found. Continue import to InTune..."
-
-            # Export DataGridViewSelected to CSV - Save CSV Temporary
-            $selectedData = @()
-
-            # Check if DataGridView is not empty
-            if ($dataGridViewSelected.Rows.Count -gt 0) {
-                # Create an empty array to store the selected data
-                $selectedData = @()
-
-                # Iterate through DataGridView rows
-                foreach ($row in $dataGridViewSelected.Rows) {
-                    $packageID = $row.Cells["PackageID"].Value
-                    $context = $row.Cells["Context"].Value
-                    $acceptNewerVersion = $row.Cells["AcceptNewerVersion"].Value
-                    $updateOnly = $row.Cells["UpdateOnly"].Value
-
-                    # Check if all required values are not null or empty
-                    if ($packageID -ne $null -and $packageID -ne "" -and
-                        $context -ne $null -and $context -ne "" -and
-                        $acceptNewerVersion -ne $null -and $acceptNewerVersion -ne "" -and
-                        $updateOnly -ne $null -and $updateOnly -ne "") {
-                        # Create a hashtable representing the row data and add it to the selected data array
-                        $rowData = [ordered]@{
-                            "PackageID"                   = $packageID
-                            "Context"                     = $context
-                            "AcceptNewerVersion"          = $acceptNewerVersion
-                            "UpdateOnly"                  = $updateOnly
-                            "TargetVersion"               = $row.Cells["TargetVersion"].Value
-                            "StopProcessInstall"          = $row.Cells["StopProcessInstall"].Value
-                            "StopProcessUninstall"        = $row.Cells["StopProcessUninstall"].Value
-                            "PreScriptInstall"            = $row.Cells["PreScriptInstall"].Value
-                            "PostScriptInstall"           = $row.Cells["PostScriptInstall"].Value
-                            "PreScriptUninstall"          = $row.Cells["PreScriptUninstall"].Value
-                            "PostScriptUninstall"         = $row.Cells["PostScriptUninstall"].Value
-                            "CustomArgumentListInstall"   = $row.Cells["CustomArgumentListInstall"].Value
-                            "CustomArgumentListUninstall" = $row.Cells["CustomArgumentListUninstall"].Value
-                            "InstallIntent"               = $row.Cells["InstallIntent"].Value
-                            "Notification"                = $row.Cells["Notification"].Value
-                            "GroupID"                     = $row.Cells["GroupID"].Value
-                        }
-                        $selectedData += New-Object PSObject -Property $rowData
-                    }
+            # Get column names from the ImportList DataGrid
+            $columnNames = @("PackageID", "Context", "AcceptNewerVersion", "UpdateOnly", "TargetVersion", 
+                           "StopProcessInstall", "StopProcessUninstall", "PreScriptInstall", "PostScriptInstall", 
+                           "PreScriptUninstall", "PostScriptUninstall", "CustomArgumentListInstall", 
+                           "CustomArgumentListUninstall", "InstallIntent", "Notification", "GroupID")
+            
+            Write-ConsoleTextBox "Column Name --> Description"
+            Write-ConsoleTextBox "****************************"        
+            
+            # Loop through each column name
+            foreach ($columnName in $columnNames) {
+                # Use regex to find the line corresponding to the column name
+                if ($content -match "\* $columnName\s*=\s*(.*?)<br>") {
+                    $description = $matches[1] -replace "<br>", "`n" -replace "\* ", "" # Clean up the description
+                    Write-ConsoleTextBox "$columnName --> $description"
+                }
+                else {
+                    Write-ConsoleTextBox "$columnName --> No description found."
                 }
             }
-            if ($selectedData -ne $null -and $selectedData.Count -gt 0) {
-                $fileName = "TempExport-$timestamp.csv"  # Construct the filename with timestamp
-                $csvFilePath = Join-Path -Path $scriptRoot -ChildPath $fileName  # Save to script root directory
-                $selectedData | Export-Csv -Path $csvFilePath -NoTypeInformation
-                Write-ConsoleTextBox "Exported: $csvFilePath"
-            }
-            else {
-                Write-ConsoleTextBox "No data to export."
-                return  # Stop further execution
-            }
-
-            # Prepare the Import script.
-            $logFile = "$scriptRoot\Logs\WinGet_WrapperImportFromCSV_$($TimeStamp).log"
-            $importScriptPath = Join-Path -Path $scriptRoot -ChildPath "Winget-WrapperImportFromCSV.ps1"
-            Write-ConsoleTextBox "ImportScriptPath: $importScriptPath"
-
-            #Inform user log file location:
-            Write-ConsoleTextBox "****************************************************"
-            Write-ConsoleTextBox "See log file for progress: $logFile"
-            Write-ConsoleTextBox "****************************************************"
-
-            #Run The Import Script
-            # Define the arguments to be passed to the script
-            $arguments = "-csvFile `"$csvFilePath`" -TenantID $($tenantIDTextBox.Text) -ClientID $($clientIDTextBox.Text) -RedirectURL `"$($redirectURLTextBox.Text)`" -ScriptRoot `"$scriptRoot`" -SkipConfirmation -SkipModuleCheck"
-            Write-ConsoleTextBox "Arguments to be passed: $arguments"
-            #Set-ExecutionPolicy Bypass -Scope Process -ExecutionPolicy Bypass -Force
-            Start-Process powershell -ArgumentList "-NoProfile", "-ExecutionPolicy Bypass", "-File `"$importScriptPath`"", $arguments -Wait -NoNewWindow
-
-            # Run Update-GUIFromLogFile in the main thread
-            Start-Sleep -Seconds 5  # wait log file creation before reading it
-            Update-GUIFromLogFile -logFilePath "$logFile"
-
-            # Remove TempExport-$timestamp.csv
-            if (Test-Path $csvFilePath) {
-                Remove-Item $csvFilePath -Force
-                Write-ConsoleTextBox "File $csvFilePath deleted successfully."
-            }
-            else {
-                Write-ConsoleTextBox "File $csvFilePath not found."
-            }
-
-            Write-ConsoleTextBox "****************************************************"
-            Write-ConsoleTextBox "Import Log File: $logFile"
-            Write-ConsoleTextBox "****************************************************"
+            Write-ConsoleTextBox "****************************"
         }
         else {
-            Write-ConsoleTextBox "Not all required files were found. Code will not run."
+            Write-ConsoleTextBox "Failed to retrieve the README file. Status code: $($response.StatusCode)"
         }
-    })
+    }
+    catch {
+        Write-ConsoleTextBox "Error fetching README: $($_.Exception.Message)"
+    }
+}
+
+# Create a global observable collection for the import list
+$script:importListItems = New-Object System.Collections.ObjectModel.ObservableCollection[object]
+
+# Set up event handlers
+
+# Search functionality
+$searchButton.Add_Click({ PerformSearch })
+
+# Allow Enter key to trigger search
+$window.Add_KeyDown({
+    param($sender, $e)
+    if ($e.Key -eq "Enter") {
+        PerformSearch
+    }
+})
+
+# Move packages to import list
+$moveButton.Add_Click({
+    $selectedItems = $searchResults.SelectedItems
+    
+    if ($selectedItems.Count -eq 0) {
+        Write-ConsoleTextBox "No packages selected. Please select one or more packages to move."
+        return
+    }
+    
+    # Initialize the import list if it's empty
+    if (-not $importList.ItemsSource) {
+        $importList.ItemsSource = $script:importListItems
+    }
+    
+    foreach ($item in $selectedItems) {
+        # Check if package already exists in the list
+        $existingItem = $script:importListItems | Where-Object { $_.PackageID -eq $item.ID }
+        if ($existingItem) {
+            Write-ConsoleTextBox "Package '$($item.ID)' already exists in import list"
+            continue
+        }
+        
+        $newItem = [PSCustomObject]@{
+            PackageID = $item.ID
+            Context = "Machine"
+            AcceptNewerVersion = "1"
+            UpdateOnly = "0"
+            TargetVersion = ""
+            StopProcessInstall = ""
+            StopProcessUninstall = ""
+            PreScriptInstall = ""
+            PostScriptInstall = ""
+            PreScriptUninstall = ""
+            PostScriptUninstall = ""
+            CustomArgumentListInstall = ""
+            CustomArgumentListUninstall = ""
+            InstallIntent = ""
+            Notification = ""
+            GroupID = ""
+        }
+        
+        $script:importListItems.Add($newItem)
+        Write-ConsoleTextBox "Added '$($item.ID)' to import list"
+    }
+})
+
+# Delete selected items from import list
+$deleteSelected.Add_Click({
+    $selectedItems = @($importList.SelectedItems)
+    
+    if ($selectedItems.Count -eq 0) {
+        Write-ConsoleTextBox "No items selected for deletion."
+        return
+    }
+    
+    foreach ($item in $selectedItems) {
+        $script:importListItems.Remove($item)
+        Write-ConsoleTextBox "Removed '$($item.PackageID)' from import list"
+    }
+})
+
+# Package details
+$getPackageDetails.Add_Click({
+    $selectedItems = $searchResults.SelectedItems
+    foreach ($item in $selectedItems) {
+        WinGetPackageDetails -PackageID $item.ID
+    }
+})
+
+# Package versions
+$getPackageVersions.Add_Click({
+    $selectedItems = $searchResults.SelectedItems
+    foreach ($item in $selectedItems) {
+        WinGetPackageVersions -PackageID $item.ID
+    }
+})
+
+# Import CSV
+$importCSV.Add_Click({
+    $openFileDialog = New-Object Microsoft.Win32.OpenFileDialog
+    $openFileDialog.InitialDirectory = (Get-Location).Path
+    $openFileDialog.Filter = "CSV files (*.csv)|*.csv"
+    
+    if ($openFileDialog.ShowDialog()) {
+        $csvFilePath = $openFileDialog.FileName
+        
+        try {
+            $importedData = Import-Csv -Path $csvFilePath
+            
+            # Clear existing items and add imported data
+            $script:importListItems.Clear()
+            foreach ($item in $importedData) {
+                $script:importListItems.Add($item)
+            }
+            
+            # Set the ItemsSource if not already set
+            if (-not $importList.ItemsSource) {
+                $importList.ItemsSource = $script:importListItems
+            }
+            
+            Write-ConsoleTextBox "Imported CSV: $csvFilePath"
+        }
+        catch {
+            Write-ConsoleTextBox "Error importing CSV: $($_.Exception.Message)"
+        }
+    }
+})
+
+# Export CSV
+$exportCSV.Add_Click({
+    if ($script:importListItems.Count -gt 0) {
+        $saveFileDialog = New-Object Microsoft.Win32.SaveFileDialog
+        $saveFileDialog.InitialDirectory = (Get-Location).Path
+        $saveFileDialog.FileName = "WinGet-WrapperImportGUI-$timestamp.csv"
+        $saveFileDialog.Filter = "CSV files (*.csv)|*.csv"
+        
+        if ($saveFileDialog.ShowDialog()) {
+            $csvFilePath = $saveFileDialog.FileName
+            
+            try {
+                $script:importListItems | Export-Csv -Path $csvFilePath -NoTypeInformation
+                Write-ConsoleTextBox "Exported: $csvFilePath"
+            }
+            catch {
+                Write-ConsoleTextBox "Error exporting CSV: $($_.Exception.Message)"
+            }
+        }
+    }
+    else {
+        Write-ConsoleTextBox "No data to export."
+    }
+})
+
+# GitHub link
+$gitHubLink.Add_MouseDown({
+    Start-Process "https://github.com/SorenLundt/WinGet-Wrapper"
+})
+
+# Column help
+$columnHelp.Add_MouseDown({
+    GetColumnDefinitions
+})
+
+# Search box placeholder handling
+$defaultSearchText = "Search for software (e.g., VLC, Chrome, Firefox)"
+$searchBox.Add_GotFocus({
+    if ($searchBox.Text -eq $defaultSearchText) {
+        $searchBox.Text = ""
+        $searchBox.Foreground = "Black"
+    }
+})
+
+$searchBox.Add_LostFocus({
+    if ([string]::IsNullOrWhiteSpace($searchBox.Text)) {
+        $searchBox.Text = $defaultSearchText
+        $searchBox.Foreground = "Gray"
+    }
+})
+
+# Tenant ID placeholder handling
+$defaultTenantText = "company.onmicrosoft.com"
+$tenantID.Add_GotFocus({
+    if ($tenantID.Text -eq $defaultTenantText) {
+        $tenantID.Text = ""
+        $tenantID.Foreground = "Black"
+    }
+})
+
+$tenantID.Add_LostFocus({
+    if ([string]::IsNullOrWhiteSpace($tenantID.Text)) {
+        $tenantID.Text = $defaultTenantText
+        $tenantID.Foreground = "Gray"
+    }
+})
+
+# Import to InTune
+$importToInTune.Add_Click({
+    Write-ConsoleTextBox "Started import to InTune.."
+
+    # Check if TenantID is valid
+    if ([string]::IsNullOrWhiteSpace($tenantID.Text) -or $tenantID.Text -eq $defaultTenantText -or -not ($tenantID.Text -like "*.*")) {
+        Write-ConsoleTextBox "Please enter a valid Tenant ID before importing to InTune."
+        return
+    }
+
+    # List of files to check
+    $filesToCheck = @(
+        "WinGet-Wrapper.ps1",
+        "WinGet-WrapperDetection.ps1", 
+        "WinGet-WrapperRequirements.ps1",
+        "WinGet-WrapperImportFromCSV.ps1",
+        "IntuneWinAppUtil.exe"
+    )
+
+    $foundAllFiles = $true
+    foreach ($file in $filesToCheck) {
+        $fileFullPath = Join-Path -Path $scriptRoot -ChildPath $file
+
+        if (-not (Test-Path -Path $fileFullPath -PathType Leaf)) {
+            Write-ConsoleTextBox "File '$file' was not found."
+            $foundAllFiles = $false
+        }
+        else {
+            Write-ConsoleTextBox "File '$file' was found."
+        }
+    }
+
+    if ($foundAllFiles) {
+        Write-ConsoleTextBox "All required files found. Continue import to InTune..."
+
+        if ($script:importListItems.Count -gt 0) {
+            $fileName = "TempExport-$timestamp.csv"
+            $csvFilePath = Join-Path -Path $scriptRoot -ChildPath $fileName
+            
+            try {
+                $script:importListItems | Export-Csv -Path $csvFilePath -NoTypeInformation
+                Write-ConsoleTextBox "Exported: $csvFilePath"
+
+                # Prepare the Import script
+                $logFile = "$scriptRoot\Logs\WinGet_WrapperImportFromCSV_$($TimeStamp).log"
+                $importScriptPath = Join-Path -Path $scriptRoot -ChildPath "Winget-WrapperImportFromCSV.ps1"
+                Write-ConsoleTextBox "ImportScriptPath: $importScriptPath"
+
+                Write-ConsoleTextBox "****************************************************"
+                Write-ConsoleTextBox "See log file for progress: $logFile"
+                Write-ConsoleTextBox "****************************************************"
+
+                # Run The Import Script
+                $arguments = "-csvFile `"$csvFilePath`" -TenantID $($tenantID.Text) -ClientID $($clientID.Text) -RedirectURL `"$($redirectURI.Text)`" -ScriptRoot `"$scriptRoot`" -SkipConfirmation -SkipModuleCheck"
+                Write-ConsoleTextBox "Arguments to be passed: $arguments"
+                
+                Start-Process powershell -ArgumentList "-NoProfile", "-ExecutionPolicy Bypass", "-File `"$importScriptPath`"", $arguments -Wait -NoNewWindow
+
+                # Update GUI from log file
+                Start-Sleep -Seconds 5
+                Update-GUIFromLogFile -logFilePath "$logFile"
+
+                # Remove temporary CSV
+                if (Test-Path $csvFilePath) {
+                    Remove-Item $csvFilePath -Force
+                    Write-ConsoleTextBox "File $csvFilePath deleted successfully."
+                }
+
+                Write-ConsoleTextBox "****************************************************"
+                Write-ConsoleTextBox "Import Log File: $logFile"
+                Write-ConsoleTextBox "****************************************************"
+            }
+            catch {
+                Write-ConsoleTextBox "Error during import: $($_.Exception.Message)"
+            }
+        }
+        else {
+            Write-ConsoleTextBox "No data to import."
+        }
+    }
+    else {
+        Write-ConsoleTextBox "Not all required files were found. Code will not run."
+    }
+})
 
 # Update ConsoleProgress
-Show-ConsoleProgress -PercentComplete 100 -Status "Sucessfully loaded Winget-Wrapper Import GUI"
+Show-ConsoleProgress -PercentComplete 100 -Status "Successfully loaded Winget-Wrapper Import GUI"
 
-# Greeting
+# Initial greeting
 Write-ConsoleTextBox "****************************************************"
 Write-ConsoleTextBox "                           WinGet-Wrapper"
 Write-ConsoleTextBox "  https://github.com/SorenLundt/WinGet-Wrapper"
@@ -1027,5 +1034,5 @@ Write-ConsoleTextBox ""
 Write-ConsoleTextBox "              GNU General Public License v3"
 Write-ConsoleTextBox "****************************************************"
 
-# Show form
-$form.ShowDialog() | Out-Null
+# Show the WPF window
+$window.ShowDialog() | Out-Null
